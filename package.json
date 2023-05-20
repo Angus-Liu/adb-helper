@@ -17,7 +17,7 @@
         {
           "id": "adb-helper",
           "title": "ADB 助手",
-          "icon": "resources/adb.png"
+          "icon": "resources/adb.svg"
         }
       ]
     },
@@ -32,11 +32,21 @@
           "name": "文件浏览器 / File Explorer"
         },
         {
+          "id": "adb-helper-app",
+          "name": "应用 / App"
+        },
+        {
           "id": "adb-helper-scripts",
           "name": "脚本 / Scripts"
         }
       ]
-    }
+    },
+    "commands": [
+      {
+        "command": "extension.showDeviceFileStructure",
+        "title": "Show Device File Structure"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
