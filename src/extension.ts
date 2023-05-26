@@ -1,92 +1,86 @@
 import * as vscode from 'vscode';
 import * as adb from 'adbkit';
 
+const client = adb.createClient();
+
 export function activate(context: vscode.ExtensionContext) {
-    let disposable = vscode.commands.registerCommand('extension.showDeviceFileStructure', () => {
-        const panel = vscode.window.createWebviewPanel(
-            'deviceFileStructure',
-            'Device File Structure',
-            vscode.ViewColumn.One,
-            {}
-        );
-
-        panel.webview.html = getWebviewContent();
-
-        panel.webview.onDidReceiveMessage(message => {
-            if (message.command === 'ls') {
-                executeAdbCommand(panel, 'ls');
-            }
-        });
+    let refreshDivicesCmd = vscode.commands.registerCommand('adb-helper.refreshDivices', function () {
+        vscode.window.showInformationMessage('refreshDivicesCmd');
+        listDevices();
     });
 
-    context.subscriptions.push(disposable);
+    context.subscriptions.push(refreshDivicesCmd);
 }
 
-function getWebviewContent() {
-    return `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Device File Structure</title>
-        </head>
-        <body>
-            <h1>Device File Structure</h1>
-            <button onclick="listFiles()">List Files</button>
-            <ul id="fileList"></ul>
-
-            <script>
-            const vscode = acquireVsCodeApi();
-
-            function listFiles() {
-                vscode.postMessage({ command: 'ls' });
-            }
-
-            function updateFileList(files) {
-                const fileList = document.getElementById('fileList');
-                fileList.innerHTML = '';
-
-                files.forEach(file => {
-                    const listItem = document.createElement('li');
-                    listItem.textContent = file;
-                    fileList.appendChild(listItem);
-                });
-            }
-
-            // 在Webview加载完成后发送消息给插件
-            window.addEventListener('load', () => {
-                vscode.postMessage({ command: 'ready' });
-            });
-
-            // 接收插件发送的消息
-            window.addEventListener('message', event => {
-                const message = event.data;
-                switch (message.command) {
-                    case 'updateFileList':
-                        updateFileList(message.files);
-                        break;
-                }
-            });
-            </script>
-        </body>
-        </html>
-    `;
+enum NodeType {
+    Device,
+    Dir,
+    File
 }
 
-async function executeAdbCommand(panel: vscode.WebviewPanel, command: string) {
-    const client = adb.createClient();
-    const devices = await client.listDevices();
+class DeviceNode {
+    deviceId: string;
+    name: string;
+    path: string;
+    type: NodeType;
 
-    if (devices.length === 0) {
-        panel.webview.postMessage({ command: 'updateFileList', files: [] });
-        return;
+
+    constructor(deviceId: string, type: NodeType, name?: string, path?: string) {
+        this.deviceId = deviceId;
+        this.type = type;
+        this.name = name ? name : deviceId;
+        this.path = path ? path : deviceId;
     }
 
-    const deviceSerial = devices[0].id;
+    public string(): string {
+        return `deviceId: ${this.deviceId}, type: ${this.type}, name: ${this.name}, path: ${this.path}`;
+    }
+}
 
-    const output = await client.shell(deviceSerial, command);
-    const files = output.trim().split('\n');
+class DevicesProvider implements vscode.TreeDataProvider<DeviceNode> {
 
-    panel.webview.postMessage({ command: 'updateFileList', files });
+    onDidChangeTreeData?: vscode.Event<void | DeviceNode | DeviceNode[] | null | undefined> | undefined;
+
+    getTreeItem(element: DeviceNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
+        return {
+            label: (element.type === NodeType.Device ? '📱 ' : '') + element.name,
+            // collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+            collapsibleState: element.type !== NodeType.File ? vscode.TreeItemCollapsibleState.Collapsed : void 0
+        };
+    }
+
+
+
+    getChildren(element?: DeviceNode | undefined): vscode.ProviderResult<DeviceNode[]> {
+        if (element === undefined) {
+            return client.listDevices().map(device => new DeviceNode(device.id, NodeType.Device, device.id, '/'));
+        }
+        vscode.window.showInformationMessage(element.string());
+
+        return client.readdir(element.deviceId, element.path).map(
+            file => new DeviceNode(
+                element.deviceId,
+                file.isFile() ? NodeType.File : NodeType.Dir,
+                file.name,
+                element.type === NodeType.Device ? file.name : `${element.path}/${file.name}`
+            )
+        );
+    }
+
+    getParent?(element: DeviceNode): vscode.ProviderResult<DeviceNode> {
+        throw new Error('Method not implemented.');
+    }
+
+    resolveTreeItem?(item: vscode.TreeItem, element: DeviceNode, token: vscode.CancellationToken): vscode.ProviderResult<vscode.TreeItem> {
+        throw new Error('Method not implemented.');
+    }
+
+
+}
+
+
+function listDevices() {
+    vscode.window.createTreeView('adb-helper-devices', {
+        treeDataProvider: new DevicesProvider()
+    });
 }

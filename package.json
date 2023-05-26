@@ -43,10 +43,19 @@
     },
     "commands": [
       {
-        "command": "extension.showDeviceFileStructure",
-        "title": "Show Device File Structure"
+        "command": "adb-helper.refreshDivices",
+        "title": "refresh"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "adb-helper.refreshDivices",
+          "when": "view == adb-helper-devices",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
