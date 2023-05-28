@@ -43,8 +43,9 @@
     },
     "commands": [
       {
-        "command": "adb-helper.refreshDivices",
-        "title": "refresh"
+        "icon": "$(refresh)",
+        "title": "刷新 / Refresh",
+        "command": "adb-helper.refreshDivices"
       }
     ],
     "menus": {
