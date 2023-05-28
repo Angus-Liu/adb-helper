@@ -24,12 +24,23 @@ class DeviceNode {
     path: string;
     type: NodeType;
 
+    parent?: DeviceNode;
+    children: DeviceNode[];
 
-    constructor(deviceId: string, type: NodeType, name?: string, path?: string) {
+
+    constructor(
+        deviceId: string, type: NodeType, name?: string, path?: string,
+        parent?: DeviceNode, children?: DeviceNode[]) {
         this.deviceId = deviceId;
         this.type = type;
         this.name = name ? name : deviceId;
         this.path = path ? path : deviceId;
+        if (parent) {
+            this.parent = parent;
+        }
+        if (children) {
+            this.children = children;
+        }
     }
 
     public string(): string {
@@ -44,7 +55,6 @@ class DevicesProvider implements vscode.TreeDataProvider<DeviceNode> {
     getTreeItem(element: DeviceNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
         return {
             label: (element.type === NodeType.Device ? '📱 ' : '') + element.name,
-            // collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
             collapsibleState: element.type !== NodeType.File ? vscode.TreeItemCollapsibleState.Collapsed : void 0
         };
     }
@@ -52,7 +62,7 @@ class DevicesProvider implements vscode.TreeDataProvider<DeviceNode> {
 
 
     getChildren(element?: DeviceNode | undefined): vscode.ProviderResult<DeviceNode[]> {
-        if (element === undefined) {
+        if (!element) {
             return client.listDevices().map(device => new DeviceNode(device.id, NodeType.Device, device.id, '/'));
         }
         vscode.window.showInformationMessage(element.string());
@@ -62,13 +72,14 @@ class DevicesProvider implements vscode.TreeDataProvider<DeviceNode> {
                 element.deviceId,
                 file.isFile() ? NodeType.File : NodeType.Dir,
                 file.name,
-                element.type === NodeType.Device ? file.name : `${element.path}/${file.name}`
+                element.type === NodeType.Device ? file.name : `${element.path}/${file.name}`,
+                element
             )
         );
     }
 
     getParent?(element: DeviceNode): vscode.ProviderResult<DeviceNode> {
-        throw new Error('Method not implemented.');
+        return element.parent;
     }
 
     resolveTreeItem?(item: vscode.TreeItem, element: DeviceNode, token: vscode.CancellationToken): vscode.ProviderResult<vscode.TreeItem> {
